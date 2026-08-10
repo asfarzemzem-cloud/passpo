@@ -37,6 +37,7 @@ export interface PassportData {
   isValidRule: boolean;
   validityMonths: number;
   ruleMessage: string;
+  extractionWarning?: string;
 
   // Confidence & Dual Validation
   confidenceScores?: Record<string, number>;

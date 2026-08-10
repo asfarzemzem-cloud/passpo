@@ -30,6 +30,11 @@ export const PassportFormView: React.FC<PassportFormViewProps> = ({
   useEffect(() => {
     setFormData(data);
     setFieldSources(data.fieldSources || {});
+    // Auto-unlock form if extraction had warnings or missing key data
+    const hasWarnings = !!data.extractionWarning || (!data.passportNumber && !data.surnameLatin) || data.mrzChecksumValid === false;
+    if (hasWarnings) {
+      setIsLocked(false);
+    }
   }, [data]);
 
   const handleChange = (field: keyof PassportData, val: any) => {
@@ -203,6 +208,24 @@ export const PassportFormView: React.FC<PassportFormViewProps> = ({
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* PROMINENT WARNING BANNER FOR FLOU / EXTRACTION PARTIELLE */}
+      {(formData.extractionWarning || (!formData.passportNumber && !formData.surnameLatin) || formData.mrzChecksumValid === false) && (
+        <div className="bg-amber-50 border-2 border-amber-400 text-amber-950 p-4 rounded-2xl flex items-start gap-3 shadow-xs animate-in fade-in duration-200">
+          <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1.5 flex-1">
+            <div className="font-extrabold text-amber-900 text-sm flex items-center justify-between gap-2 flex-wrap">
+              <span>{formData.extractionWarning || "⚠️ Contrôle MRZ incertain ou image partiellement floue — Veuillez vérifier les données ci-dessous."}</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-200 text-amber-900 border border-amber-300 uppercase">
+                Formulaire Déverrouillé
+              </span>
+            </div>
+            <p className="text-amber-800 leading-relaxed font-medium">
+              Les informations lues ont été renseignées ci-dessous. Le formulaire est <strong className="font-bold underline text-amber-950">déverrouillé</strong> : vous pouvez compléter ou corriger les champs directement avant de cliquer sur <span className="font-bold text-amber-950">« Enregistrer client »</span>.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* DOUBLE VERIFICATION STATUS CARD (PASS 1: IA/OCR VISION + PASS 2: MRZ ICAO 9303 SANS FAILLE) - VISIBLE ONLY IN DEBUG MODE */}
       {isDebugMode && (

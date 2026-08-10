@@ -120,106 +120,109 @@ export const processPassportImage = async (base64Image: string, mimeType: string
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
-    Analyze this passport or national ID image and extract all information accurately according to official passport structure (MRZ & Visual inspection area).
+    Analyze this passport or national ID image and extract ALL information with MAXIMUM best-effort tolerance.
 
-    CRITICAL RULES:
-    1. If the image is blurry, unreadable, obscured, or not a passport/ID document, DO NOT invent fields. Return empty strings or null.
+    MANDATORY extraction guidelines:
+    1. NEVER REJECT THE IMAGE OR REFUSE EXTRACTION. Even if the image is blurry, low-resolution, partially covered, or edited (e.g. if names, MRZ, or photo are blurred):
+       - Extract ALL visible or partially visible fields without exception.
+       - If some fields (like surname, given names, or MRZ) are blurred or obscured, STILL extract all other readable fields (Passport Number, CIN, Dates of Birth/Issuance/Expiry, Nationality, Sex, Places, Issuing Authority).
+       - For blurry or partially visible text, provide your best OCR guess/approximation.
     2. ARABIC & LATIN NAMES:
        - Extract Arabic script text for surname ('surnameArabic') and given names ('givenNamesArabic').
        - Extract Latin family name ('surnameLatin') and given names ('givenNamesLatin').
-    3. LOCATIONS:
+    3. LOCATIONS & AUTHORITIES:
        - Place of birth in Latin ('placeOfBirth') and Arabic city name only ('placeOfBirthArabic').
-       - Issuing authority in Latin ('issuingAuthority') and Arabic province/city name only ('issuingAuthorityArabic').
-       - Address or principal city in Latin ('address') and Arabic city name only ('addressArabic').
-    4. MRZ & NUMBERS:
+       - Issuing authority in Latin ('issuingAuthority') and Arabic province/city name ('issuingAuthorityArabic').
+       - Address or principal city in Latin ('address') and Arabic city name ('addressArabic').
+    4. NUMBERS & DATES:
        - Passport Number ('passportNumber')
        - Personal Number / CIN ('personalNumber')
-       - Nationality code ('nationality')
+       - Nationality code e.g. MAR ('nationality')
        - Sex M or F ('sex')
        - Date of birth DD/MM/YYYY ('dateOfBirth')
        - Date of expiry DD/MM/YYYY ('dateOfExpiry')
        - Date of issuance DD/MM/YYYY ('dateOfIssuance')
-       - Full raw MRZ lines ('rawMrz')
+       - Raw MRZ lines if visible ('rawMrz')
     5. CROPPING BOXES (0 to 1000):
        - 'boundingBox': Box enclosing passport page.
        - 'faceBoundingBox': Box enclosing photo portrait.
-    6. If date of birth or any key field is blurry or ambiguous, set 'dateOfBirthUncertain' to true.
+    6. If any field or date is blurry or uncertain, extract your best guess and set 'dateOfBirthUncertain' or field sources accordingly.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: {
-      parts: [
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: mimeType,
-          },
-        },
-        {
-          text: prompt,
-        },
-      ],
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          isUnreadableDocument: { type: Type.BOOLEAN, description: "True si l'image est floue ou inexploitable" },
-          surnameArabic: { type: Type.STRING },
-          givenNamesArabic: { type: Type.STRING },
-          surnameLatin: { type: Type.STRING },
-          givenNamesLatin: { type: Type.STRING },
-          passportNumber: { type: Type.STRING },
-          personalNumber: { type: Type.STRING },
-          nationality: { type: Type.STRING },
-          sex: { type: Type.STRING },
-          dateOfBirth: { type: Type.STRING },
-          dateOfBirthUncertain: { type: Type.BOOLEAN },
-          dateOfExpiry: { type: Type.STRING },
-          placeOfBirth: { type: Type.STRING },
-          placeOfBirthArabic: { type: Type.STRING },
-          dateOfIssuance: { type: Type.STRING },
-          issuingAuthority: { type: Type.STRING },
-          issuingAuthorityArabic: { type: Type.STRING },
-          address: { type: Type.STRING },
-          addressArabic: { type: Type.STRING },
-          rawMrz: { type: Type.STRING },
-          boundingBox: {
-            type: Type.OBJECT,
-            properties: {
-              ymin: { type: Type.INTEGER },
-              xmin: { type: Type.INTEGER },
-              ymax: { type: Type.INTEGER },
-              xmax: { type: Type.INTEGER },
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: base64Image,
+              mimeType: mimeType,
             },
           },
-          faceBoundingBox: {
-            type: Type.OBJECT,
-            properties: {
-              ymin: { type: Type.INTEGER },
-              xmin: { type: Type.INTEGER },
-              ymax: { type: Type.INTEGER },
-              xmax: { type: Type.INTEGER },
+          {
+            text: prompt,
+          },
+        ],
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isUnreadableDocument: { type: Type.BOOLEAN, description: "True si l'image est floue ou inexploitable" },
+            surnameArabic: { type: Type.STRING },
+            givenNamesArabic: { type: Type.STRING },
+            surnameLatin: { type: Type.STRING },
+            givenNamesLatin: { type: Type.STRING },
+            passportNumber: { type: Type.STRING },
+            personalNumber: { type: Type.STRING },
+            nationality: { type: Type.STRING },
+            sex: { type: Type.STRING },
+            dateOfBirth: { type: Type.STRING },
+            dateOfBirthUncertain: { type: Type.BOOLEAN },
+            dateOfExpiry: { type: Type.STRING },
+            placeOfBirth: { type: Type.STRING },
+            placeOfBirthArabic: { type: Type.STRING },
+            dateOfIssuance: { type: Type.STRING },
+            issuingAuthority: { type: Type.STRING },
+            issuingAuthorityArabic: { type: Type.STRING },
+            address: { type: Type.STRING },
+            addressArabic: { type: Type.STRING },
+            rawMrz: { type: Type.STRING },
+            boundingBox: {
+              type: Type.OBJECT,
+              properties: {
+                ymin: { type: Type.INTEGER },
+                xmin: { type: Type.INTEGER },
+                ymax: { type: Type.INTEGER },
+                xmax: { type: Type.INTEGER },
+              },
+            },
+            faceBoundingBox: {
+              type: Type.OBJECT,
+              properties: {
+                ymin: { type: Type.INTEGER },
+                xmin: { type: Type.INTEGER },
+                ymax: { type: Type.INTEGER },
+                xmax: { type: Type.INTEGER },
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!response.text) {
-    throw new Error("Aucune réponse du moteur d'extraction.");
+    if (!response.text) {
+      return formatAndValidatePassportData({ isUnreadableDocument: true });
+    }
+
+    const parsed = JSON.parse(response.text);
+    return formatAndValidatePassportData(parsed);
+  } catch (err: any) {
+    console.warn("Gemini extraction soft failure:", err);
+    return formatAndValidatePassportData({ isUnreadableDocument: true });
   }
-
-  const parsed = JSON.parse(response.text);
-
-  if (parsed.isUnreadableDocument) {
-    throw new Error("Document inexploitable ou trop flou. Veuillez utiliser une photo plus nette.");
-  }
-
-  return formatAndValidatePassportData(parsed);
 };
 
 export function computeDeterministicConfidenceScores(
@@ -392,10 +395,7 @@ const formatAndValidatePassportData = (parsed: any): PassportData => {
   const dateOfExpiry = (parsed.dateOfExpiry || "").trim();
   const rawMrz = (parsed.rawMrz || "").trim();
 
-  // If essential identifying fields are ALL missing, image is unreadable
-  if (!passportNumber && !surnameLatin && !rawMrz) {
-    throw new Error("Qualité d'image insuffisante ou informations du passeport illisibles.");
-  }
+  const isUnreadable = !!parsed.isUnreadableDocument || (!passportNumber && !surnameLatin && !rawMrz);
 
   // REAL ICAO 9303 MRZ Checksum calculation
   const mrzCheck = validateIcaoTd3Mrz(rawMrz);
@@ -413,12 +413,16 @@ const formatAndValidatePassportData = (parsed: any): PassportData => {
     personalNumber: parsed.personalNumber ? 'auto' : 'incertain',
     nationality: parsed.nationality ? 'auto' : 'incertain',
     sex: parsed.sex ? 'auto' : 'incertain',
-    dateOfBirth: parsed.dateOfBirthUncertain ? 'incertain' : 'auto',
+    dateOfBirth: parsed.dateOfBirthUncertain ? 'incertain' : (parsed.dateOfBirth ? 'auto' : 'incertain'),
     dateOfExpiry: parsed.dateOfExpiry ? 'auto' : 'incertain',
     placeOfBirth: parsed.placeOfBirth ? 'auto' : 'incertain',
     dateOfIssuance: parsed.dateOfIssuance ? 'auto' : 'incertain',
     issuingAuthority: parsed.issuingAuthority ? 'auto' : 'incertain',
   };
+
+  const warningMessage = (isUnreadable || !mrzCheck.isValid || !passportNumber || !surnameLatin || parsed.dateOfBirthUncertain)
+    ? "⚠️ Contrôle MRZ incertain ou image partiellement floue — Veuillez vérifier les données ci-dessous."
+    : "";
 
   return {
     surnameArabic: parsed.surnameArabic || "",
@@ -442,7 +446,8 @@ const formatAndValidatePassportData = (parsed: any): PassportData => {
     addressArabic: parsed.addressArabic || "",
     isValidRule: true,
     validityMonths: 0,
-    ruleMessage: "",
+    ruleMessage: warningMessage,
+    extractionWarning: warningMessage || undefined,
     confidenceScores,
     mrzChecksumValid: mrzCheck.isValid,
     mrzMatchVerified: mrzCheck.isValid,
