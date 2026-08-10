@@ -1,0 +1,10 @@
+{
+  "name": "PassportAI Scanner",
+  "description": "Module d'extraction OCR de passeports par IA avec découpe automatique, validation MRZ et interface professionnelle en français.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
